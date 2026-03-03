@@ -48,17 +48,27 @@ function GatewayContent() {
     if (!isLoaded) return
     setError("")
     setIsLoggingIn(true)
+
+    // Safety net: reset spinner after 15 seconds no matter what
+    const timeoutId = setTimeout(() => {
+      setIsLoggingIn(false)
+      setError("ログインがタイムアウトしました。もう一度お試しください。")
+    }, 15000)
+
     try {
       const result = await signIn.create({ identifier: email, password })
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId })
-        router.push("/feed")
-        // Note: we don't set setIsLoggingIn(false) here because we are navigating
+        clearTimeout(timeoutId)
+        // Hard navigation: ensures fresh session cookies are sent and
+        // avoids Next.js soft-navigation edge cases with middleware
+        window.location.href = "/feed"
       } else {
-        // Handle cases like MFA
+        clearTimeout(timeoutId)
         setIsLoggingIn(false)
       }
     } catch (err: unknown) {
+      clearTimeout(timeoutId)
       const clerkErr = err as { errors?: { message: string }[] }
       setError(clerkErr.errors?.[0]?.message || "ログインに失敗しました")
       setIsLoggingIn(false)
