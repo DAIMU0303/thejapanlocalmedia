@@ -18,7 +18,7 @@ export default function GatewayPage() {
 function GatewayContent() {
   const searchParams = useSearchParams()
   const callbackMessage = searchParams.get("message")
-  const { signIn, isLoaded } = useSignIn()
+  const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
   const [mode, setMode] = useState<"login" | "reset">("login")
   const [email, setEmail] = useState("")
@@ -30,6 +30,19 @@ function GatewayContent() {
   const [resetEmail, setResetEmail] = useState("")
   const [error, setError] = useState("")
 
+  const errorCode = searchParams.get("error")
+
+  // Handle errors from middleware
+  React.useEffect(() => {
+    if (errorCode === "pending") {
+      setError("アカウントは現在承認待ちです。管理者からの連絡をお待ちください。")
+      setIsLoggingIn(false)
+    } else if (errorCode === "suspended") {
+      setError("アカウントが停止されています。管理者にお問い合わせください。")
+      setIsLoggingIn(false)
+    }
+  }, [errorCode])
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isLoaded) return
@@ -38,7 +51,12 @@ function GatewayContent() {
     try {
       const result = await signIn.create({ identifier: email, password })
       if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId })
         router.push("/feed")
+        // Note: we don't set setIsLoggingIn(false) here because we are navigating
+      } else {
+        // Handle cases like MFA
+        setIsLoggingIn(false)
       }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: { message: string }[] }

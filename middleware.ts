@@ -28,8 +28,11 @@ export default clerkMiddleware(async (auth, req) => {
       .eq('clerk_user_id', userId)
       .single()
 
-    if (profile?.status === 'pending' || profile?.status === 'suspended') {
-      return NextResponse.redirect(new URL('/', req.url))
+    if (profile?.status === 'pending') {
+      return NextResponse.redirect(new URL('/?error=pending', req.url))
+    }
+    if (profile?.status === 'suspended') {
+      return NextResponse.redirect(new URL('/?error=suspended', req.url))
     }
 
     if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
