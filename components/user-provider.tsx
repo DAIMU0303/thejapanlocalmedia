@@ -5,11 +5,33 @@ import { useUser } from "@clerk/nextjs"
 import { useUserStore } from "@/lib/store/use-user-store"
 import { getProfile } from "@/app/actions/profile"
 
+// TEMPORARY: Enable mock user for preview without auth
+const PREVIEW_MODE = true
+
+const MOCK_USER = {
+  id: "preview-user-id",
+  clerkUserId: "preview-clerk-id",
+  name: "プレビューユーザー",
+  email: "preview@example.com",
+  memberId: "TJLM-0001",
+  rank: "standard" as const,
+  role: "member" as const,
+  status: "active" as const,
+  avatarUrl: undefined,
+  bio: "プレビュー用のモックユーザーです",
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser()
   const { setUser, setLoading, logout } = useUserStore()
 
   useEffect(() => {
+    // TEMPORARY: Use mock user for preview
+    if (PREVIEW_MODE) {
+      setUser(MOCK_USER)
+      return
+    }
+
     if (!isLoaded) return
 
     if (!clerkUser) {

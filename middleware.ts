@@ -6,6 +6,10 @@ const isPublicRoute = createRouteMatcher([
   '/signup(.*)',
   '/auth(.*)',
   '/reset-password(.*)',
+  // TEMPORARY: Allow preview without auth
+  '/feed(.*)',
+  '/mypage(.*)',
+  '/article(.*)',
 ])
 
 export default clerkMiddleware(async (auth, req) => {
