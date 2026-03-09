@@ -10,38 +10,9 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth()
-  const pathname = req.nextUrl.pathname
 
   if (!userId && !isPublicRoute(req)) {
     return NextResponse.redirect(new URL('/', req.url))
-  }
-
-  if (userId && !isPublicRoute(req)) {
-    try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('status, role')
-        .eq('clerk_user_id', userId)
-        .single()
-
-      if (profile?.status === 'pending') {
-        return NextResponse.redirect(new URL('/?error=pending', req.url))
-      }
-      if (profile?.status === 'suspended') {
-        return NextResponse.redirect(new URL('/?error=suspended', req.url))
-      }
-
-      if (pathname.startsWith('/admin') && profile?.role !== 'admin') {
-        return NextResponse.redirect(new URL('/feed', req.url))
-      }
-    } catch {
-      // If Supabase is unreachable, allow the request through rather than blocking the user
-    }
   }
 
   return NextResponse.next()

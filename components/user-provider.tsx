@@ -2,12 +2,14 @@
 
 import { useEffect } from "react"
 import { useUser } from "@clerk/nextjs"
+import { usePathname } from "next/navigation"
 import { useUserStore } from "@/lib/store/use-user-store"
 import { getProfile } from "@/app/actions/profile"
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded } = useUser()
   const { setUser, setLoading, logout } = useUserStore()
+  const pathname = usePathname()
 
   useEffect(() => {
     if (!isLoaded) return
@@ -20,17 +22,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setLoading(true)
     getProfile().then((result) => {
       if ("data" in result && result.data) {
+        const data = result.data
+
+        if (data.status === "pending") {
+          window.location.href = "/?error=pending"
+          return
+        }
+        if (data.status === "suspended") {
+          window.location.href = "/?error=suspended"
+          return
+        }
+        if (pathname.startsWith("/admin") && data.role !== "admin") {
+          window.location.href = "/feed"
+          return
+        }
+
         setUser({
-          id: result.data.id,
+          id: data.id,
           clerkUserId: clerkUser.id,
-          name: result.data.display_name,
-          email: result.data.email,
-          memberId: result.data.member_id || "",
-          rank: result.data.rank || "standard",
-          role: result.data.role || "member",
-          status: result.data.status || "pending",
-          avatarUrl: result.data.avatar_url || undefined,
-          bio: result.data.bio || undefined,
+          name: data.display_name,
+          email: data.email,
+          memberId: data.member_id || "",
+          rank: data.rank || "standard",
+          role: data.role || "member",
+          status: data.status || "pending",
+          avatarUrl: data.avatar_url || undefined,
+          bio: data.bio || undefined,
         })
       } else {
         setLoading(false)
