@@ -2,7 +2,6 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Noto_Sans_JP, Noto_Serif_JP } from 'next/font/google'
 import './globals.css'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from "@/components/ui/toaster"
 
 const notoSans = Noto_Sans_JP({ subsets: ['latin'], variable: '--font-noto-sans' })
@@ -15,13 +14,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
-      <html lang="ja">
-        <body className={`${notoSans.variable} ${notoSerif.variable} font-sans antialiased text-[#1B3022]`}>
-          {children}
-          <Toaster />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="ja">
+      <body className={`${notoSans.variable} ${notoSerif.variable} font-sans antialiased text-[#1B3022]`}>
+        {children}
+        <Toaster />
+      </body>
+    </html>
   )
 }

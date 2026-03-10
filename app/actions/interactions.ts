@@ -1,17 +1,17 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { getCurrentUser } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function toggleLike(contentId: string) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (!profile) return { error: "Profile not found" }
@@ -36,14 +36,14 @@ export async function toggleLike(contentId: string) {
 }
 
 export async function toggleBookmark(contentId: string) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (!profile) return { error: "Profile not found" }
@@ -68,14 +68,14 @@ export async function toggleBookmark(contentId: string) {
 }
 
 export async function getUserInteractions(contentId: string) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { liked: false, bookmarked: false }
+  const user = await getCurrentUser()
+  if (!user) return { liked: false, bookmarked: false }
 
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (!profile) return { liked: false, bookmarked: false }

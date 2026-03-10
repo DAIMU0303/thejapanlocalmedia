@@ -3,13 +3,13 @@
 import React, { Suspense, useState, useEffect } from "react"
 import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
-import { useSignUp } from "@clerk/nextjs"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Eye, EyeOff, CheckCircle, UserPlus, Shield } from "lucide-react"
-import { verifyInviteCode, createProfileAfterSignup } from "@/app/actions/auth"
+import { Eye, EyeOff, CheckCircle, UserPlus } from "lucide-react"
+import { verifyInviteCode } from "@/app/actions/auth"
 
 export default function SignupPage() {
   return <Suspense><SignupContent /></Suspense>
@@ -19,7 +19,6 @@ function SignupContent() {
   const searchParams = useSearchParams()
   const ref = searchParams.get("ref") || ""
   const router = useRouter()
-  const { signUp, isLoaded } = useSignUp()
 
   const [mounted, setMounted] = useState(false)
   const [referrerName, setReferrerName] = useState("")
@@ -29,8 +28,6 @@ function SignupContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
   const [error, setError] = useState("")
-  const [verificationStep, setVerificationStep] = useState(false)
-  const [verificationCode, setVerificationCode] = useState("")
 
   const [formData, setFormData] = useState({
     lastName: "",
@@ -59,44 +56,33 @@ function SignupContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded || !signUp) return
     setError("")
     setIsSubmitting(true)
 
     try {
-      await signUp.create({
-        emailAddress: formData.email,
+      const supabase = createClient()
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            display_name: `${formData.lastName} ${formData.firstName}`,
+            screening_answer: formData.question,
+            invite_code: ref,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       })
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" })
-      setVerificationStep(true)
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr.errors?.[0]?.message || "登録に失敗しました")
-    }
-    setIsSubmitting(false)
-  }
 
-  const handleVerification = async () => {
-    if (!isLoaded || !signUp) return
-    setError("")
-    setIsSubmitting(true)
-
-    try {
-      const result = await signUp.attemptEmailAddressVerification({ code: verificationCode })
-      if (result.status === "complete") {
-        await createProfileAfterSignup({
-          clerkUserId: signUp.createdUserId!,
-          email: formData.email,
-          displayName: `${formData.lastName} ${formData.firstName}`,
-          screeningAnswer: formData.question,
-          inviteCode: ref,
-        })
-        setIsComplete(true)
+      if (signUpError) {
+        setError(signUpError.message || "登録に失敗しました")
+        setIsSubmitting(false)
+        return
       }
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr.errors?.[0]?.message || "認証に失敗しました")
+
+      setIsComplete(true)
+    } catch {
+      setError("登録に失敗しました")
     }
     setIsSubmitting(false)
   }
@@ -129,9 +115,9 @@ function SignupContent() {
             <CheckCircle className="w-10 h-10 text-[#D4AF37]" />
           </div>
           <div className="space-y-3">
-            <h2 className="font-serif text-2xl text-[#F8F9FA]">ご登録ありがとうございます</h2>
-            <p className="text-sm text-[#F8F9FA]/70">審査完了後、ログイン可能になります。</p>
-            <p className="text-xs text-[#F8F9FA]/50">審査には通常1〜3営業日かかります。</p>
+            <h2 className="font-serif text-2xl text-[#F8F9FA]">確認メールを送信しました</h2>
+            <p className="text-sm text-[#F8F9FA]/70">メールに記載のリンクをクリックして登録を完了してください。</p>
+            <p className="text-xs text-[#F8F9FA]/50">メール確認後、管理者による審査（1〜3営業日）が行われます。</p>
           </div>
           <Button onClick={() => router.push("/")} className="bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-[#1B3022]">
             トップに戻る
@@ -171,92 +157,60 @@ function SignupContent() {
           </div>
         )}
 
-        {verificationStep ? (
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
-              <Shield className="w-8 h-8 text-[#D4AF37] mx-auto" />
-              <p className="text-[#F8F9FA]/90 text-sm">メールに送信された認証コードを入力してください</p>
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">認証コード</Label>
-              <Input type="text" placeholder="123456" value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25 text-center text-lg tracking-[0.5em]" />
-            </div>
-            <Button onClick={handleVerification} disabled={isSubmitting || !verificationCode}
-              className="w-full h-12 bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-[#1B3022] font-medium tracking-wider">
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[#1B3022]/30 border-t-[#1B3022] rounded-full animate-spin" />確認中...
-                </span>
-              ) : "認証する"}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">姓</Label>
-                <Input placeholder="山田" value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">名</Label>
-                <Input placeholder="太郎" value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">Email</Label>
-              <Input type="email" placeholder="your@email.com" value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">姓</Label>
+              <Input placeholder="山田" value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
             </div>
-
             <div className="space-y-2">
-              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">Password</Label>
-              <div className="relative">
-                <Input type={showPassword ? "text" : "password"} placeholder="8文字以上" value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25 pr-12" required minLength={8} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F8F9FA]/30 hover:text-[#F8F9FA]/60">
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
+              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">名</Label>
+              <Input placeholder="太郎" value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">
-                あなたが今、一番知りたいことを教えてください
-              </Label>
-              <Textarea placeholder="地方創生・観光・まちづくりなどに関心のあること..." value={formData.question}
-                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-                className="min-h-[100px] bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
+          <div className="space-y-2">
+            <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">Email</Label>
+            <Input type="email" placeholder="your@email.com" value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">Password</Label>
+            <div className="relative">
+              <Input type={showPassword ? "text" : "password"} placeholder="8文字以上" value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="h-12 bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25 pr-12" required minLength={8} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F8F9FA]/30 hover:text-[#F8F9FA]/60">
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
             </div>
+          </div>
 
-            <Button type="submit" disabled={isSubmitting}
-              className="w-full h-12 bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-[#1B3022] font-medium tracking-wider">
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-[#1B3022]/30 border-t-[#1B3022] rounded-full animate-spin" />登録中...
-                </span>
-              ) : "登録する"}
-            </Button>
+          <div className="space-y-2">
+            <Label className="text-xs tracking-widest uppercase text-[#F8F9FA]/50">
+              あなたが今、一番知りたいことを教えてください
+            </Label>
+            <Textarea placeholder="地方創生・観光・まちづくりなどに関心のあること..." value={formData.question}
+              onChange={(e) => setFormData({ ...formData, question: e.target.value })}
+              className="min-h-[100px] bg-[#F8F9FA]/5 border-[#F8F9FA]/10 text-[#F8F9FA] placeholder:text-[#F8F9FA]/25" required />
+          </div>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#F8F9FA]/10" /></div>
-              <div className="relative flex justify-center"><span className="px-3 text-xs text-[#F8F9FA]/30 bg-transparent">または</span></div>
-            </div>
-
-            <Button type="button" disabled className="w-full h-12 bg-[#F8F9FA]/5 border border-[#F8F9FA]/10 text-[#F8F9FA]/40">
-              Googleで登録（準備中）
-            </Button>
-          </form>
-        )}
+          <Button type="submit" disabled={isSubmitting}
+            className="w-full h-12 bg-[#D4AF37] hover:bg-[#D4AF37]/90 text-[#1B3022] font-medium tracking-wider">
+            {isSubmitting ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-[#1B3022]/30 border-t-[#1B3022] rounded-full animate-spin" />登録中...
+              </span>
+            ) : "登録する"}
+          </Button>
+        </form>
 
         <div className="mt-12 text-center">
           <p className="text-[10px] text-[#F8F9FA]/20 tracking-wider">TheJapanLocalMedia 2026 All rights reserved.</p>

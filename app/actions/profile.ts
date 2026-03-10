@@ -1,17 +1,17 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { getCurrentUser } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function getProfile() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (error) return { error: error.message }
@@ -19,26 +19,26 @@ export async function getProfile() {
 }
 
 export async function updateProfile(input: { displayName: string; bio?: string }) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { error } = await supabase
     .from("profiles")
     .update({ display_name: input.displayName, bio: input.bio })
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
 
   if (error) return { error: error.message }
   return { success: true }
 }
 
 export async function getMyInviteCode() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data: code } = await supabase.rpc("get_or_create_invite_code", {
-    p_clerk_user_id: clerkUser.id,
+    p_clerk_user_id: user.id,
   })
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
@@ -46,15 +46,15 @@ export async function getMyInviteCode() {
 }
 
 export async function getReferralStats() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (!profile) return { referralCount: 0, clickCount: 0, conversionRate: "0" }

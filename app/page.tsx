@@ -4,8 +4,8 @@ import React, { Suspense } from "react"
 import { useState } from "react"
 import Image from "next/image"
 import { useSearchParams } from "next/navigation"
-import { useSignIn } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,7 +18,6 @@ export default function GatewayPage() {
 function GatewayContent() {
   const searchParams = useSearchParams()
   const callbackMessage = searchParams.get("message")
-  const { signIn, setActive, isLoaded } = useSignIn()
   const router = useRouter()
   const [mode, setMode] = useState<"login" | "reset">("login")
   const [email, setEmail] = useState("")
@@ -32,60 +31,50 @@ function GatewayContent() {
 
   const errorCode = searchParams.get("error")
 
-  // Handle errors from middleware
   React.useEffect(() => {
     if (errorCode === "pending") {
       setError("アカウントは現在承認待ちです。管理者からの連絡をお待ちください。")
-      setIsLoggingIn(false)
     } else if (errorCode === "suspended") {
       setError("アカウントが停止されています。管理者にお問い合わせください。")
-      setIsLoggingIn(false)
     }
   }, [errorCode])
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded) return
     setError("")
     setIsLoggingIn(true)
 
-    // Safety net: reset spinner after 15 seconds no matter what
-    const timeoutId = setTimeout(() => {
-      setIsLoggingIn(false)
-      setError("ログインがタイムアウトしました。もう一度お試しください。")
-    }, 15000)
-
     try {
-      const result = await signIn.create({ identifier: email, password })
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId })
-        clearTimeout(timeoutId)
-        // Hard navigation: ensures fresh session cookies are sent and
-        // avoids Next.js soft-navigation edge cases with middleware
-        window.location.href = "/feed"
-      } else {
-        clearTimeout(timeoutId)
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        setError("メールアドレスまたはパスワードが正しくありません")
         setIsLoggingIn(false)
+        return
       }
-    } catch (err: unknown) {
-      clearTimeout(timeoutId)
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr.errors?.[0]?.message || "ログインに失敗しました")
+      router.push("/feed")
+    } catch {
+      setError("ログインに失敗しました")
       setIsLoggingIn(false)
     }
   }
 
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!isLoaded) return
     setError("")
     setIsResetting(true)
     try {
-      await signIn.create({ strategy: "reset_password_email_code", identifier: resetEmail })
-      setResetSent(true)
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: { message: string }[] }
-      setError(clerkErr.errors?.[0]?.message || "送信に失敗しました")
+      const supabase = createClient()
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      })
+      if (resetError) {
+        setError("送信に失敗しました")
+      } else {
+        setResetSent(true)
+      }
+    } catch {
+      setError("送信に失敗しました")
     }
     setIsResetting(false)
   }

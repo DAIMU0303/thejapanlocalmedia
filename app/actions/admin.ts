@@ -1,21 +1,21 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { getCurrentUser } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 async function requireAdmin() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) throw new Error("Unauthorized")
+  const user = await getCurrentUser()
+  if (!user) throw new Error("Unauthorized")
 
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   if (profile?.role !== "admin") throw new Error("Forbidden")
-  return clerkUser
+  return user
 }
 
 export async function getAdminUsers() {

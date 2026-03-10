@@ -49,6 +49,10 @@
   text-wrap: balance;
 }
 
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 :root {
   --background: 140 10% 97%;
   --foreground: 150 30% 10%;

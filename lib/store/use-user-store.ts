@@ -2,7 +2,7 @@ import { create } from "zustand"
 
 interface UserProfile {
   id: string
-  clerkUserId: string
+  supabaseUserId: string
   name: string
   email: string
   memberId: string

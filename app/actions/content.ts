@@ -1,6 +1,6 @@
 "use server"
 
-import { currentUser } from "@clerk/nextjs/server"
+import { getCurrentUser } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export async function getPublishedContents() {
@@ -16,8 +16,8 @@ export async function getPublishedContents() {
 }
 
 export async function getAllContents() {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -56,14 +56,14 @@ export async function createContent(input: {
   premium?: boolean
   requiredRank?: string
 }) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("clerk_user_id", clerkUser.id)
+    .eq("clerk_user_id", user.id)
     .single()
 
   const { data, error } = await supabase
@@ -92,8 +92,8 @@ export async function createContent(input: {
 }
 
 export async function deleteContent(id: string) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const supabase = createAdminClient()
   const { error } = await supabase.from("contents").delete().eq("id", id)
@@ -102,8 +102,8 @@ export async function deleteContent(id: string) {
 }
 
 export async function uploadThumbnail(formData: FormData) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const file = formData.get("file") as File
   if (!file) return { error: "No file provided" }
@@ -124,8 +124,8 @@ export async function uploadThumbnail(formData: FormData) {
 }
 
 export async function uploadVideo(formData: FormData) {
-  const clerkUser = await currentUser()
-  if (!clerkUser) return { error: "Unauthorized" }
+  const user = await getCurrentUser()
+  if (!user) return { error: "Unauthorized" }
 
   const file = formData.get("file") as File
   if (!file) return { error: "No file provided" }

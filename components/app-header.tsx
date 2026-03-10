@@ -3,17 +3,23 @@
 import React, { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useClerk } from "@clerk/nextjs"
+import { createClient } from "@/lib/supabase/client"
 import { useUserStore } from "@/lib/store/use-user-store"
-import { Home, User, Shield, Settings, LogOut, Heart, Bookmark, Menu, X, ChevronDown } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Home, User, Shield, Settings, LogOut, Heart, Menu, X, ChevronDown, Search, Coins } from "lucide-react"
 
-export function AppHeader() {
+interface AppHeaderProps {
+  points?: number
+}
+
+export function AppHeader({ points = 0 }: AppHeaderProps) {
   const pathname = usePathname()
-  const { signOut } = useClerk()
   const { user } = useUserStore()
   const [mounted, setMounted] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { setMounted(true) }, [])
@@ -28,7 +34,11 @@ export function AppHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [])
 
-  const handleLogout = () => signOut({ redirectUrl: "/" })
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = "/"
+  }
 
   const navItems = [
     { href: "/feed", label: "ホーム", icon: Home },
@@ -43,14 +53,28 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-50 border-b border-[#1B3022]/10 bg-[#F8F9FA]/95 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo */}
-          <Link href="/feed" className="font-serif text-xl tracking-wider text-[#1B3022]">
+          <Link href="/feed" className="font-serif text-xl tracking-wider text-[#1B3022] shrink-0">
             TheJapanLocalMedia
           </Link>
 
+          {/* Search Bar - Desktop */}
+          <div className="hidden md:flex flex-1 max-w-md mx-4">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1B3022]/40" />
+              <Input
+                type="search"
+                placeholder="記事・動画・案件を検索..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-4 h-9 bg-[#1B3022]/5 border-transparent focus:border-[#D4AF37]/30"
+              />
+            </div>
+          </div>
+
           {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
               return (
@@ -64,6 +88,16 @@ export function AppHeader() {
               )
             })}
           </nav>
+
+          {/* Points Badge */}
+          {points > 0 && (
+            <Link href="/mypage" className="hidden md:flex">
+              <Badge variant="secondary" className="flex items-center gap-1.5 px-3 py-1 bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#1B3022] transition-colors cursor-pointer">
+                <Coins className="w-3.5 h-3.5 text-[#D4AF37]" />
+                <span className="font-semibold text-sm">{points.toLocaleString()} pts</span>
+              </Badge>
+            </Link>
+          )}
 
           {/* Desktop User Menu */}
           <div className="hidden md:block relative" ref={menuRef}>
@@ -112,14 +146,28 @@ export function AppHeader() {
           </div>
 
           {/* Mobile Hamburger */}
-          <button className="md:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
+          <button className="lg:hidden p-2" onClick={() => setMobileOpen(!mobileOpen)}>
             {mobileOpen ? <X className="w-6 h-6 text-[#1B3022]" /> : <Menu className="w-6 h-6 text-[#1B3022]" />}
           </button>
         </div>
 
+        {/* Mobile Search Bar */}
+        <div className="md:hidden pb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1B3022]/40" />
+            <Input
+              type="search"
+              placeholder="検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-4 h-9 bg-[#1B3022]/5 border-transparent"
+            />
+          </div>
+        </div>
+
         {/* Mobile Menu */}
         {mobileOpen && (
-          <div className="md:hidden border-t border-[#1B3022]/10 py-4 space-y-2">
+          <div className="lg:hidden border-t border-[#1B3022]/10 py-4 space-y-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href
               return (
